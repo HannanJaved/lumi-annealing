@@ -1,0 +1,8 @@
+9.9227 /scratch/project_462000963/preprocessed/gemma-3/HPLT/HPLT2.0_cleaned/deu_Latn, 
+8.3777 /scratch/project_462000963/preprocessed/gemma-3/HPLT/HPLT2.0_cleaned/fra_Latn, 
+10.4022 /scratch/project_462000963/preprocessed/gemma-3/HPLT/HPLT2.0_cleaned/spa_Latn,
+4.7150 /scratch/project_462000963/preprocessed/gemma-3/HPLT/HPLT2.0_cleaned/ita_Latn,
+28.5695 /scratch/project_462000963/preprocessed/gemma-3/nemotron-cc/medium-high-actual,
+31.3532 /scratch/project_462000963/preprocessed/gemma-3/nemotron-cc/high-actual,
+5.9936 /scratch/project_462000963/preprocessed/gemma-3/starcoder/starcoderdata,
+0.6660 /scratch/project_462000963/preprocessed/gemma-3/HuggingFaceTB/finemath/finemath-4plus-train 
