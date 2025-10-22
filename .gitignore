@@ -1,3 +1,6 @@
 Annealing/run*/
 Annealing/checkpoint_for_annealing/
 Annealing/logs/
+2B-4TT-training/
+ROCm-Megatron-LM/
+Annealing/cache*
