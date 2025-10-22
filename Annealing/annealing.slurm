@@ -2,8 +2,8 @@
 #SBATCH --job-name=Anneal-2B-datapath1
 #SBATCH --cpus-per-task=6
 #SBATCH --ntasks-per-node=8
-#SBATCH --nodes=4
-#SBATCH --mem=128G
+#SBATCH --nodes=8
+#SBATCH --mem=480G
 #SBATCH --partition=standard-g
 #SBATCH --time=48:00:00
 #SBATCH --exclusive
@@ -56,30 +56,30 @@ set -euo pipefail
 # and include timestamp to avoid this.
 timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
 logfile_basename="${SLURM_JOB_NAME}-${SLURM_JOBID}-${timestamp}"
-mv -f "logs/${SLURM_JOBID}.out" "logs/${logfile_basename}.out"
-mv -f "logs/${SLURM_JOBID}.err" "logs/${logfile_basename}.err"
+# mv -f "logs/${SLURM_JOBID}.out" "logs/${logfile_basename}.out"
+# mv -f "logs/${SLURM_JOBID}.err" "logs/${logfile_basename}.err"
 
 # Check if this is a restared run and if so, print the failure
 # events/reasons for failed nodes. (This relies on "logs/latest.err"
 # pointing to the error log of the failed run.)
-if [[ -v SLURM_RESTART_COUNT ]]; then
-    failed_node=$(grep 'Node failure' logs/latest.err | awk '{print $NF}')
-    if [[ -z ${failed_node:+x} ]]; then
-        echo "RUN RESTARTED but no node failure logged"
-    else
-        failed_node="${failed_node//$'\n'/ }"
-        echo "RUN RESTARTED AFTER FAILURE OF NODE(s) $failed_node. Reason:"
-        sacctmgr show event where node="$failed_node" format="NodeName,TimeStart,TimeEnd,State,Reason%100"
-    fi
-fi
+# if [[ -v SLURM_RESTART_COUNT ]]; then
+#     failed_node=$(grep 'Node failure' logs/latest.err | awk '{print $NF}')
+#     if [[ -z ${failed_node:+x} ]]; then
+#         echo "RUN RESTARTED but no node failure logged"
+#     else
+#         failed_node="${failed_node//$'\n'/ }"
+#         echo "RUN RESTARTED AFTER FAILURE OF NODE(s) $failed_node. Reason:"
+#         sacctmgr show event where node="$failed_node" format="NodeName,TimeStart,TimeEnd,State,Reason%100"
+#     fi
+# fi
 
 # Symlink logs/latest.out and logs/latest.err for convenience and to
 # support the above check.
-ln -sf "${logfile_basename}.out" "logs/latest.out"
-ln -sf "${logfile_basename}.err" "logs/latest.err"
+# ln -sf "${logfile_basename}.out" "logs/latest.out"
+# ln -sf "${logfile_basename}.err" "logs/latest.err"
 
 # No modules are needed with the container we are using.
-module purge
+module --force purge
 
 # Dedicated LUMI container with most of what we need for LLM training
 CONTAINER=/appl/local/containers/sif-images/lumi-pytorch-rocm-6.2.4-python-3.12-pytorch-v2.6.0.sif
@@ -96,8 +96,8 @@ export CC=gcc-12
 export CXX=g++-12
 
 # Mask to bind tasks to CPUs for one thread per core
-c="fe"
-BIND_MASK="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
+# c="fe"
+# BIND_MASK="0x${c}000000000000,0x${c}00000000000000,0x${c}0000,0x${c}000000,0x${c},0x${c}00,0x${c}00000000,0x${c}0000000000"
 
 # PATHS
 BASE_DIR="$SLURM_SUBMIT_DIR"
@@ -109,7 +109,7 @@ WANDB_DIR="$OUTPUT_DIR/wandb"
 mkdir -p "$CHECKPOINT_PATH"    # This needs to exist
 
 # WEIGHTS & BIASES CONFIG
-WANDB_PROJECT="annealing runs"
+WANDB_PROJECT="annealing_runs"
 WANDB_EXP_NAME="run1"
 
 # Script that is used to launch on GPU nodes
@@ -219,7 +219,7 @@ WEIGHT_DECAY=0.05
 
 # TRAINING
 FSDP=0
-GLOBAL_BATCH_SIZE=1920
+GLOBAL_BATCH_SIZE=3840
 MICRO_BATCH_SIZE=4  # Decreased from 4 to 2 with 9B model paramaters
 RECOMPUTATION=0
 TRAIN_TOKENS=100_000_000_000    # TRAIN_ITERS computed from this
@@ -288,7 +288,7 @@ LR_DECAY_ITERS=$TRAIN_ITERS
 ######################################################################
 
 DATA_ARGS=(
-    --data-path "${DATA_PATHS[@]}"
+    --data-path "${DATA_PATH[@]}"
     --data-cache-path "$DATA_CACHE_PATH"
     --tokenizer-type HuggingFaceTokenizer
     --tokenizer-model "$TOKENIZER_MODEL"
@@ -367,6 +367,7 @@ MODEL_ARGS+=(
     --no-rope-fusion    # buggy on AMD, do not enable without validating
     --distributed-timeout-minutes 30    # Increased from 10 to 30 for 4TT run
     --overlap-grad-reduce
+    # --skip-train    # Skip CUDA fused kernels compilation (not available on ROCm)
 )
 
 OPTIMIZER_ARGS=(
@@ -429,7 +430,7 @@ CHECKPOINT_ARGS=(
 )
 
 COMMAND=" \
-    ../Megatron-LM/pretrain_gpt.py \
+    ../ROCm-Megatron-LM/pretrain_gpt.py \
     "${MODEL_ARGS[@]}" \
     "${OPTIMIZER_ARGS[@]}" \
     "${PARALLEL_ARGS[@]}" \
@@ -454,14 +455,55 @@ echo "START $SLURM_JOBID: $(date)"
 echo "SLURM_NNODES: $SLURM_NNODES"
 echo "SLURM_CPUS_PER_TASK: $SLURM_CPUS_PER_TASK"
 
+
+# srun \
+#     singularity exec \
+#     -B "$BASE_DIR" \
+#     -B "$BIND_DIRS" \
+#     "$CONTAINER" \
+#     "$LAUNCH_SCRIPT" \
+#     $COMMAND
+
+# LAUNCHER="PYTHONPATH=/mnt/packages/transformers singularity exec \
+#     --nv \
+#     --bind $BIND_DIRS \
+#     $CONTAINER \
+#     python -u -m torch.distributed.run \
+#       --nproc-per-node $SLURM_GPUS_PER_NODE \
+#       --nnodes $SLURM_NNODES \
+#       --rdzv_endpoint $MASTER_ADDR:$MASTER_PORT \
+#       --rdzv_backend static \
+#       --max_restarts 0 \
+#       --tee 3 \
+#     "
+
+# # cd $MEGATRON_PATH
+
+# srun \
+#     --wait=60 \
+#     --cpus-per-task=$SLURM_CPUS_PER_TASK \
+#     --threads-per-core=1 \
+#     --kill-on-bad-exit=1 \
+#     --jobid $SLURM_JOB_ID \
+#     bash -c "$LAUNCHER --node_rank \$SLURM_PROCID --role \$SLURMD_NODENAME: $CMD"
+
 srun \
     --label \
-    --cpu-bind=mask_cpu:$BIND_MASK \
     singularity exec \
     -B "$BASE_DIR" \
     -B "$BIND_DIRS" \
     "$CONTAINER" \
     "$LAUNCH_SCRIPT" \
     $COMMAND
+
+# srun \
+#     --label \
+#     --cpu-bind=mask_cpu:$BIND_MASK \
+#     singularity exec \
+#     -B "$BASE_DIR" \
+#     -B "$BIND_DIRS" \
+#     "$CONTAINER" \
+#     "$LAUNCH_SCRIPT" \
+#     $COMMAND
 
 echo "END $SLURM_JOBID: $(date)"
