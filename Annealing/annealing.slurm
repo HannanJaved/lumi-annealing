@@ -225,7 +225,7 @@ RECOMPUTATION=0
 TRAIN_TOKENS=100_000_000_000    # TRAIN_ITERS computed from this
 
 # SAVING AND EVALUATION
-LOG_INTERVAL=1
+LOG_INTERVAL=100
 SAVE_INTERVAL=1000
 EVAL_INTERVAL=5000
 EVAL_ITERS=100
@@ -394,7 +394,7 @@ OUTPUT_ARGS=(
     --eval-interval $EVAL_INTERVAL
     --eval-iters $EVAL_ITERS
     --tensorboard-dir "$TENSORBOARD_DIR"
-    --tensorboard-queue-size 5
+    --tensorboard-queue-size 1
     --wandb-project "$WANDB_PROJECT"
     --wandb-exp-name "$WANDB_EXP_NAME"
     --wandb-save-dir "$WANDB_DIR"
