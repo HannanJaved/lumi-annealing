@@ -262,16 +262,16 @@ TRAIN_ITERS=$(divide_rounding_up $TRAIN_TOKENS $ITER_TOKENS)
 
 # Set LR_WARMUP_ITERS and LR_WSD_DECAY_ITERS based on WARMUP_FRACTION
 # and COOLDOWN_FRACTION
-WARMUP_CALC=$((TRAIN_ITERS * ${WARMUP_FRACTION}))
+# WARMUP_CALC=$((TRAIN_ITERS * ${WARMUP_FRACTION}))
 
 # Cap warmup iterations at 25000 to prevent excessively long warmup periods
-if [ $WARMUP_CALC -gt 25000 ]; then
-   LR_WARMUP_ITERS=25000
-else
-   LR_WARMUP_ITERS=$WARMUP_CALC
-fi
-
-LR_WSD_DECAY_ITERS=$((TRAIN_ITERS*${COOLDOWN_FRACTION}))
+# if [ $WARMUP_CALC -gt 25000 ]; then
+#    LR_WARMUP_ITERS=25000
+# else
+#    LR_WARMUP_ITERS=$WARMUP_CALC
+# fi
+LR_WARMUP_ITERS=0
+# LR_WSD_DECAY_ITERS=$((TRAIN_ITERS*${COOLDOWN_FRACTION}))
 
 # LR_DECAY_ITERS is simply set to TRAIN_ITERS
 LR_DECAY_ITERS=$TRAIN_ITERS
@@ -377,11 +377,11 @@ OPTIMIZER_ARGS=(
     --adam-eps $ADAM_EPS
     --lr $LR
     --min-lr $MIN_LR
-    --lr-decay-style "WSD"
-    --lr-wsd-decay-style "linear"
+    --lr-decay-style "linear"
+    # --lr-wsd-decay-style "linear"
     --lr-warmup-iters $LR_WARMUP_ITERS
     --lr-decay-iters $LR_DECAY_ITERS
-    --lr-wsd-decay-iters $LR_WSD_DECAY_ITERS
+    # --lr-wsd-decay-iters $LR_WSD_DECAY_ITERS
     --clip-grad $CLIP_GRAD
     --weight-decay $WEIGHT_DECAY
     --no-load-optim 
